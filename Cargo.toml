@@ -1,0 +1,20 @@
+[package]
+name = "flightsim"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.8", features = ["wayland"] }
+bevy_rapier3d = { version = "0.16", features = ["debug-render", "simd-stable"] }
+bevy_prototype_debug_lines = { version = "0.8", features = ["3d"] }
+bevy-inspector-egui = "0.12"
+bevy_dolly = { git = "https://github.com/BlackPhlox/bevy_dolly.git?rev=3a3efb9" }
+leafwing-input-manager = "0.5.1"
+
+# Enable only a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3
