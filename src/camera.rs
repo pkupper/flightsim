@@ -1,8 +1,12 @@
 use bevy::{input::mouse::MouseMotion, prelude::*};
 use bevy_dolly::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiContext;
+use leafwing_input_manager::prelude::ActionState;
 
-use crate::Airplane;
+use crate::{
+    input::{AirplaneAction, AirplaneControls},
+    Airplane,
+};
 
 pub struct CameraPlugin;
 
@@ -45,6 +49,7 @@ fn update_camera(
     mut egui_context: ResMut<EguiContext>,
     buttons: Res<Input<MouseButton>>,
     mut motion_evr: EventReader<MouseMotion>,
+    input_query: Query<&ActionState<AirplaneAction>, With<AirplaneControls>>,
 ) {
     let plane_transform = airplane_query.single().to_owned();
 
@@ -59,4 +64,12 @@ fn update_camera(
                 .rotate_yaw_pitch(-ev.delta.x, -ev.delta.y);
         }
     }
+
+    let action_state = input_query.single();
+
+    let axis_pair = action_state
+        .clamped_axis_pair(AirplaneAction::CameraPanTilt)
+        .unwrap();
+    rig.driver_mut::<YawPitch>()
+        .rotate_yaw_pitch(-axis_pair.x(), -axis_pair.y());
 }

@@ -11,6 +11,8 @@ bevy-inspector-egui = "0.12"
 bevy_dolly = { git = "https://github.com/BlackPhlox/bevy_dolly.git?rev=3a3efb9" }
 leafwing-input-manager = "0.5.1"
 
+enum-map = "2.4.1"
+
 # Enable only a small amount of optimization in debug mode
 [profile.dev]
 opt-level = 1

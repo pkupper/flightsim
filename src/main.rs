@@ -5,29 +5,38 @@ use bevy_rapier3d::prelude::*;
 
 use std::f32::consts::PI;
 
+#[macro_use]
+extern crate enum_map;
+
 mod aerodynamics;
+mod airplane;
 mod camera;
+mod hud;
 mod input;
 
 use aerodynamics::{
     AeroSurface, AeroSurfaceConfig, AeroSurfaceList, AerodynamicsPlugin, ControlInputType,
 };
+use airplane::{Airplane, AirplaneBundle, AirplanePlugin};
 use camera::CameraPlugin;
+use hud::AirplaneHudPlugin;
 use input::InputPlugin;
 
 fn main() {
     App::new()
         .insert_resource(Msaa::default())
         .insert_resource(ClearColor(Color::rgb(0.52, 0.81, 0.92)))
-        .insert_resource(RapierConfiguration {
-            gravity: Vec3::ZERO,
-            ..default()
-        })
+        // .insert_resource(RapierConfiguration {
+        //     gravity: Vec3::ZERO,
+        //     ..default()
+        // })
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         // .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(DebugLinesPlugin::default())
         .add_plugin(WorldInspectorPlugin::new())
+        .add_plugin(AirplanePlugin)
+        .add_plugin(AirplaneHudPlugin)
         .add_plugin(AerodynamicsPlugin)
         .add_plugin(CameraPlugin)
         .add_plugin(InputPlugin)
@@ -87,9 +96,6 @@ fn setup_terrain(
         .insert(Sun);
 }
 
-#[derive(Component)]
-struct Airplane;
-
 fn setup_airplane(mut commands: Commands, asset_server: Res<AssetServer>) {
     let fuselage_collider = load_collider("assets/planes/ask21/ASK21_Fuselage_Collider.csv");
     let left_wing_collider = load_collider("assets/planes/ask21/ASK21_Left_Wing_Collider.csv");
@@ -100,45 +106,126 @@ fn setup_airplane(mut commands: Commands, asset_server: Res<AssetServer>) {
         load_collider("assets/planes/ask21/ASK21_Vertical_Stabilizer_Collider.csv");
 
     commands
-        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 200.0, 0.0)))
-        .insert_bundle(VisibilityBundle::default())
+        .spawn_bundle(AirplaneBundle {
+            transform: Transform::from_xyz(0.0, 2000.0, 0.0)
+                .with_rotation(Quat::from_rotation_x(0.0f32.to_radians())),
+            velocity: Velocity::linear(Vec3::new(0.0, 0.0, -27.7)),
+            collider: Collider::compound(vec![
+                (
+                    Vec3::ZERO,
+                    Quat::IDENTITY,
+                    Collider::convex_hull(&fuselage_collider).unwrap(),
+                ),
+                (
+                    Vec3::ZERO,
+                    Quat::IDENTITY,
+                    Collider::convex_hull(&left_wing_collider).unwrap(),
+                ),
+                (
+                    Vec3::ZERO,
+                    Quat::IDENTITY,
+                    Collider::convex_hull(&right_wing_collider).unwrap(),
+                ),
+                (
+                    Vec3::ZERO,
+                    Quat::IDENTITY,
+                    Collider::convex_hull(&horizontal_stabilizer_collider).unwrap(),
+                ),
+                (
+                    Vec3::ZERO,
+                    Quat::IDENTITY,
+                    Collider::convex_hull(&vertical_stabilizer_collider).unwrap(),
+                ),
+            ]),
+            aero_surface_list: AeroSurfaceList {
+                surfaces: vec![
+                    (
+                        // left wing
+                        AeroSurface {
+                            config: AeroSurfaceConfig {
+                                span: 8.0,
+                                chord: 1.2,
+                                zero_lift_aoa: 3.0f32.to_radians(),
+                                control_surface_fraction: 0.2,
+                                ..default()
+                            },
+                            input_type: ControlInputType::Roll,
+                            input_sensitivity: -0.3,
+                            ..default()
+                        },
+                        Transform::from_xyz(-4.5, 1.0, 0.2)
+                            .with_rotation(Quat::from_rotation_z(-0.07)),
+                    ),
+                    (
+                        // right wing
+                        AeroSurface {
+                            config: AeroSurfaceConfig {
+                                span: 8.0,
+                                chord: 1.2,
+                                zero_lift_aoa: 3.0f32.to_radians(),
+                                control_surface_fraction: 0.2,
+                                ..default()
+                            },
+                            input_type: ControlInputType::Roll,
+                            input_sensitivity: 0.3,
+                            ..default()
+                        },
+                        Transform::from_xyz(4.5, 1.0, 0.2)
+                            .with_rotation(Quat::from_rotation_z(0.07)),
+                    ),
+                    (
+                        // fuselage
+                        AeroSurface {
+                            config: AeroSurfaceConfig {
+                                span: 0.8,
+                                chord: 8.5,
+                                ..default()
+                            },
+                            input_type: ControlInputType::None,
+                            ..default()
+                        },
+                        Transform::from_xyz(0.0, 0.6, 1.2)
+                            .with_rotation(Quat::from_rotation_z(PI * 0.5)),
+                    ),
+                    (
+                        // vertical stabilizer
+                        AeroSurface {
+                            config: AeroSurfaceConfig {
+                                span: 1.5,
+                                chord: 1.0,
+                                control_surface_fraction: 0.3,
+                                ..default()
+                            },
+                            input_type: ControlInputType::Yaw,
+                            input_sensitivity: -0.5,
+                            ..default()
+                        },
+                        Transform::from_xyz(0.0, 1.3, 4.9)
+                            .with_rotation(Quat::from_rotation_z(PI * 0.5)),
+                    ),
+                    (
+                        // horizontal stabilizer
+                        AeroSurface {
+                            config: AeroSurfaceConfig {
+                                span: 3.0,
+                                chord: 0.8,
+                                control_surface_fraction: 0.3,
+                                ..default()
+                            },
+                            input_type: ControlInputType::Pitch,
+                            input_sensitivity: -0.5,
+                            ..default()
+                        },
+                        Transform::from_xyz(0.0, 2.0, 4.9)
+                            .with_rotation(Quat::from_rotation_x(-0.05)),
+                    ),
+                ],
+            },
+            ..default()
+        })
         .insert(Name::new("Airplane"))
-        .insert(Airplane)
-        .insert(RigidBody::Dynamic)
-        .insert(Ccd::enabled())
-        .insert(ExternalForce::default())
-        .insert(Velocity::linear(Vec3::new(0.0, 0.0, -27.7)))
-        // .insert(Velocity::linear(Vec3::new(0.0, 0.0, 0.0)))
-        .insert(ReadMassProperties::default())
-        .insert(Collider::compound(vec![
-            (
-                Vec3::ZERO,
-                Quat::IDENTITY,
-                Collider::convex_hull(&fuselage_collider).unwrap(),
-            ),
-            (
-                Vec3::ZERO,
-                Quat::IDENTITY,
-                Collider::convex_hull(&left_wing_collider).unwrap(),
-            ),
-            (
-                Vec3::ZERO,
-                Quat::IDENTITY,
-                Collider::convex_hull(&right_wing_collider).unwrap(),
-            ),
-            (
-                Vec3::ZERO,
-                Quat::IDENTITY,
-                Collider::convex_hull(&horizontal_stabilizer_collider).unwrap(),
-            ),
-            (
-                Vec3::ZERO,
-                Quat::IDENTITY,
-                Collider::convex_hull(&vertical_stabilizer_collider).unwrap(),
-            ),
-        ]))
         .insert(ColliderMassProperties::MassProperties(MassProperties {
-            local_center_of_mass: Vec3::new(-0.08496038, 0.86599594, -0.15),
+            local_center_of_mass: Vec3::new(-0.08496038, 0.86599594, -0.0),
             mass: 530.0,
             principal_inertia_local_frame: Quat::from_xyzw(
                 0.44778442,
@@ -148,87 +235,6 @@ fn setup_airplane(mut commands: Commands, asset_server: Res<AssetServer>) {
             ),
             principal_inertia: Vec3::new(6293.8193, 5342.917, 5116.539),
         }))
-        .insert(AeroSurfaceList {
-            surfaces: vec![
-                /*(
-                    // left wing
-                    AeroSurface {
-                        config: AeroSurfaceConfig {
-                            span: 8.0,
-                            chord: 1.2,
-                            control_surface_fraction: 0.2,
-                            ..default()
-                        },
-                        input_type: ControlInputType::Roll,
-                        input_sensitivity: 0.5,
-                        control_surface_angle: 0.0,
-                    },
-                    Transform::from_xyz(-4.5, 1.0, 0.2).with_rotation(Quat::from_rotation_z(-0.07)),
-                ),
-                (
-                    // right wing
-                    AeroSurface {
-                        config: AeroSurfaceConfig {
-                            span: 8.0,
-                            chord: 1.2,
-                            control_surface_fraction: 0.2,
-                            ..default()
-                        },
-                        input_type: ControlInputType::Roll,
-                        input_sensitivity: -0.5,
-                        control_surface_angle: 0.0,
-                    },
-                    Transform::from_xyz(4.5, 1.0, 0.2).with_rotation(Quat::from_rotation_z(0.07)),
-                ),
-                (
-                    // fuselage
-                    AeroSurface {
-                        config: AeroSurfaceConfig {
-                            span: 0.8,
-                            chord: 8.5,
-                            ..default()
-                        },
-                        input_type: ControlInputType::None,
-                        input_sensitivity: 0.0,
-                        control_surface_angle: 0.0,
-                    },
-                    Transform::from_xyz(0.0, 0.6, 1.2)
-                        .with_rotation(Quat::from_rotation_z(PI * 0.5)),
-                ),
-                (
-                    // vertical stabilizer
-                    AeroSurface {
-                        config: AeroSurfaceConfig {
-                            span: 1.5,
-                            chord: 1.0,
-                            control_surface_fraction: 0.3,
-                            ..default()
-                        },
-                        input_type: ControlInputType::Yaw,
-                        input_sensitivity: 0.5,
-                        control_surface_angle: 0.0,
-                    },
-                    Transform::from_xyz(0.0, 1.3, 4.9)
-                        .with_rotation(Quat::from_rotation_z(PI * 0.5)),
-                ),*/
-                (
-                    // horizontal stabilizer
-                    AeroSurface {
-                        config: AeroSurfaceConfig {
-                            span: 3.0,
-                            chord: 0.8,
-                            control_surface_fraction: 0.3,
-                            ..default()
-                        },
-                        input_type: ControlInputType::Pitch,
-                        input_sensitivity: 0.5,
-                        control_surface_angle: 0.0,
-                    },
-                    Transform::from_xyz(0.0, 2.0, 4.9),
-                ),
-            ],
-        })
-        .insert(Restitution::coefficient(0.1))
         .with_children(|child_builder| {
             child_builder
                 .spawn_bundle(SceneBundle {

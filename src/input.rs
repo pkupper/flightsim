@@ -16,29 +16,33 @@ pub enum AirplaneAction {
     Roll,
     Pitch,
     Yaw,
+    CameraPanTilt,
 }
 
 #[derive(Component)]
 pub struct AirplaneControls;
 
 fn setup_input(mut commands: Commands) {
+    let mut input_map = InputMap::new([
+        (
+            SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.1),
+            AirplaneAction::Pitch,
+        ),
+        (
+            SingleAxis::symmetric(GamepadAxisType::RightStickX, 0.1),
+            AirplaneAction::Roll,
+        ),
+        (
+            SingleAxis::symmetric(GamepadAxisType::LeftStickX, 0.1),
+            AirplaneAction::Yaw,
+        ),
+    ]);
+    input_map.insert(VirtualDPad::dpad(), AirplaneAction::CameraPanTilt);
+
     commands
         .spawn_bundle(InputManagerBundle::<AirplaneAction> {
             action_state: ActionState::default(),
-            input_map: InputMap::new([
-                (
-                    SingleAxis::symmetric(GamepadAxisType::RightStickY, 0.1),
-                    AirplaneAction::Pitch,
-                ),
-                (
-                    SingleAxis::symmetric(GamepadAxisType::RightStickX, 0.1),
-                    AirplaneAction::Roll,
-                ),
-                (
-                    SingleAxis::symmetric(GamepadAxisType::LeftStickX, 0.1),
-                    AirplaneAction::Yaw,
-                ),
-            ]),
+            input_map,
         })
         .insert(AirplaneControls);
 }

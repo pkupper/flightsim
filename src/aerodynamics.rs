@@ -16,7 +16,7 @@ impl Plugin for AerodynamicsPlugin {
             .add_system(simulate_aerodynamics.after(update_control_surface_angle))
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                draw_aero_surfaces
+                draw_debug_visualizations
                     .before("draw_lines")
                     .after(bevy::transform::transform_propagate_system),
             );
@@ -43,14 +43,16 @@ fn update_control_surface_angle(
     }
 }
 
-fn draw_aero_surfaces(
+fn draw_debug_visualizations(
     mut lines: ResMut<DebugLines>,
-    surface_list_query: Query<(&GlobalTransform, &AeroSurfaceList)>,
+    airplane_query: Query<(&GlobalTransform, &ReadMassProperties, &AeroSurfaceList)>,
 ) {
-    for (global_transform, surface_list) in &surface_list_query {
+    for (global_transform, read_mass_properties, surface_list) in &airplane_query {
+        let world_center_of_mass =
+            global_transform.mul_vec3(read_mass_properties.0.local_center_of_mass);
         lines.line_colored(
-            global_transform.translation(),
-            global_transform.translation() + global_transform.forward(),
+            world_center_of_mass,
+            world_center_of_mass + global_transform.forward(),
             0.0,
             Color::ORANGE,
         );
@@ -65,7 +67,7 @@ fn draw_aero_surfaces(
             let hinge = leading_edge
                 + back * surface.config.chord * (1.0 - surface.config.control_surface_fraction);
             let trailing_edge = hinge
-                + (up * -surface.control_surface_angle.sin()
+                + (up * surface.control_surface_angle.sin()
                     + back * surface.control_surface_angle.cos())
                     * surface.config.chord
                     * surface.config.control_surface_fraction;
@@ -83,6 +85,19 @@ fn draw_aero_surfaces(
             lines.line_colored(p1, p3, 0.0, Color::BLUE);
             lines.line_colored(p2, p4, 0.0, Color::RED);
             lines.line_colored(p3, p5, 0.0, Color::RED);
+
+            lines.line_colored(
+                surface_transform.translation(),
+                surface_transform.translation() + surface.lift * 0.001,
+                0.0,
+                Color::GREEN,
+            );
+            lines.line_colored(
+                surface_transform.translation(),
+                surface_transform.translation() + surface.drag * 0.001,
+                0.0,
+                Color::PINK,
+            );
         }
     }
 }
@@ -130,6 +145,9 @@ pub struct AeroSurface {
     pub input_type: ControlInputType,
     pub input_sensitivity: f32,
     pub control_surface_angle: f32,
+    pub lift: Vec3,
+    pub drag: Vec3,
+    pub torque: Vec3,
 }
 
 impl AeroSurface {
@@ -166,6 +184,7 @@ impl AeroSurface {
         local_air_velocity.x = 0.0;
 
         let area = self.config.chord * self.config.span;
+
         let dynamic_pressure = 0.5 * air_density * local_air_velocity.length_squared();
         let angle_of_attack = (-local_air_velocity.y).atan2(local_air_velocity.z);
 
@@ -371,35 +390,23 @@ pub struct AeroSurfaceList {
 
 impl AeroSurfaceList {
     pub fn calculate_forces(
-        &self,
+        &mut self,
         external_force: &mut ExternalForce,
         world_center_of_mass: Vec3,
         plane_transform: &Transform,
         velocity: &Velocity,
-        lines: &mut ResMut<DebugLines>,
     ) {
-        for (surface, surface_transform) in &self.surfaces {
+        for (surface, surface_transform) in &mut self.surfaces {
             let surface_plane_transform = plane_transform.mul_transform(*surface_transform);
 
             let world_position = surface_plane_transform.translation;
             let relative_position = world_position - world_center_of_mass;
 
             let air_velocity = -velocity.linvel - velocity.angvel.cross(relative_position);
-
-            info!(
-                "base linvel {:?} rot linvel {:?}",
-                velocity.linvel,
-                velocity.angvel.cross(relative_position)
-            );
-
-            lines.line_colored(
-                world_position,
-                world_position + velocity.linvel + velocity.angvel.cross(relative_position),
-                0.0,
-                Color::BLACK,
-            );
-
-            let local_air_velocity = surface_plane_transform.rotation.mul_vec3(air_velocity);
+            let local_air_velocity = surface_plane_transform
+                .rotation
+                .conjugate()
+                .mul_vec3(air_velocity);
 
             let (surface_lift, surface_drag, surface_torque) =
                 surface.calculate_forces(local_air_velocity, 1.2).into();
@@ -408,7 +415,7 @@ impl AeroSurfaceList {
             if drag_direction.is_nan() {
                 drag_direction = Vec3::ZERO;
             }
-            let mut lift_direction = drag_direction.cross(surface_plane_transform.right());
+            let mut lift_direction = drag_direction.cross(surface_plane_transform.left());
             if lift_direction.is_nan() {
                 lift_direction = Vec3::ZERO;
             }
@@ -417,18 +424,10 @@ impl AeroSurfaceList {
             let drag = surface_drag * drag_direction;
             let torque = surface_torque * surface_plane_transform.back();
 
-            lines.line_colored(
-                world_position,
-                world_position + lift * 0.01,
-                0.0,
-                Color::GREEN,
-            );
-            lines.line_colored(
-                world_position,
-                world_position + drag * 0.01,
-                0.0,
-                Color::PINK,
-            );
+            // for visualizations
+            surface.lift = lift;
+            surface.drag = drag;
+            surface.torque = torque;
 
             let total_force = lift + drag;
 
@@ -437,31 +436,24 @@ impl AeroSurfaceList {
             external_force.torque += torque;
         }
 
-        external_force.force += plane_transform.forward() * 10000.0;
+        // external_force.force += plane_transform.forward() * 10000.0;
     }
 }
 
 fn simulate_aerodynamics(
     mut airplane_query: Query<(
-        &AeroSurfaceList,
+        &mut AeroSurfaceList,
         &mut ExternalForce,
         &ReadMassProperties,
         &Transform,
         &Velocity,
     )>,
-    mut lines: ResMut<DebugLines>,
 ) {
-    for (surface_list, mut external_force, read_mass_properties, transform, velocity) in
+    for (mut surface_list, mut external_force, read_mass_properties, transform, velocity) in
         airplane_query.iter_mut()
     {
         let world_center_of_mass = transform.mul_vec3(read_mass_properties.0.local_center_of_mass);
 
-        lines.line_colored(
-            world_center_of_mass,
-            world_center_of_mass + velocity.linvel,
-            0.0,
-            Color::YELLOW,
-        );
         external_force.force = Vec3::ZERO;
         external_force.torque = Vec3::ZERO;
 
@@ -470,7 +462,6 @@ fn simulate_aerodynamics(
             world_center_of_mass,
             &transform,
             &velocity,
-            &mut lines,
         );
     }
 }
