@@ -15,7 +15,7 @@ impl Plugin for AirplaneHudPlugin {
 
 fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 size: Size::new(Val::Auto, Val::Px(70.0)),
                 padding: UiRect {
@@ -24,14 +24,15 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                     top: Val::Px(0.0),
                     bottom: Val::Px(0.0),
                 },
+                align_self: AlignSelf::FlexEnd,
                 ..default()
             },
-            color: Color::rgba(0.0, 0.0, 0.0, 0.3).into(),
+            background_color: Color::rgba(0.0, 0.0, 0.0, 0.3).into(),
             ..default()
         })
         .with_children(|parent| {
-            parent
-                .spawn_bundle({
+            parent.spawn((
+                {
                     TextBundle::from_section(
                         "0 km/h",
                         TextStyle {
@@ -44,10 +45,11 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                         size: Size::new(Val::Px(350.0), Val::Auto),
                         ..default()
                     })
-                })
-                .insert(MetricText(FlightMetric::Airspeed));
-            parent
-                .spawn_bundle({
+                },
+                MetricText(FlightMetric::Airspeed),
+            ));
+            parent.spawn((
+                {
                     TextBundle::from_section(
                         "0.00 m/s",
                         TextStyle {
@@ -60,10 +62,11 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                         size: Size::new(Val::Px(350.0), Val::Auto),
                         ..default()
                     })
-                })
-                .insert(MetricText(FlightMetric::VerticalSpeed));
-            parent
-                .spawn_bundle({
+                },
+                MetricText(FlightMetric::VerticalSpeed),
+            ));
+            parent.spawn((
+                {
                     TextBundle::from_section(
                         "0 m",
                         TextStyle {
@@ -76,8 +79,9 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
                         size: Size::new(Val::Px(350.0), Val::Auto),
                         ..default()
                     })
-                })
-                .insert(MetricText(FlightMetric::Height));
+                },
+                MetricText(FlightMetric::Height),
+            ));
         });
 }
 

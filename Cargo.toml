@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.8", features = ["wayland"] }
-bevy_rapier3d = { version = "0.16", features = ["debug-render", "simd-stable"] }
-bevy_prototype_debug_lines = { version = "0.8", features = ["3d"] }
-bevy-inspector-egui = "0.12"
-bevy_dolly = { git = "https://github.com/BlackPhlox/bevy_dolly.git?rev=3a3efb9" }
-leafwing-input-manager = "0.5.1"
+bevy = { version = "0.9", features = ["wayland"] }
+bevy_rapier3d = { version = "0.20", features = ["debug-render", "simd-stable"] }
+bevy_prototype_debug_lines = { version = "0.9", features = ["3d"] }
+bevy-inspector-egui = "0.17"
+bevy_dolly = { git = "https://github.com/BlackPhlox/bevy_dolly.git", rev = "c8d03a17f5e2ff78d8625df28230e215a023d643"}
+leafwing-input-manager = "0.7.1"
 
 enum-map = "2.4.1"
 

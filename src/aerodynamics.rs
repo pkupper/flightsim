@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::{Inspectable, RegisterInspectable};
 use bevy_prototype_debug_lines::DebugLines;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
@@ -11,7 +10,7 @@ pub struct AerodynamicsPlugin;
 
 impl Plugin for AerodynamicsPlugin {
     fn build(&self, app: &mut App) {
-        app.register_inspectable::<AeroSurfaceList>()
+        app.register_type::<AeroSurfaceList>()
             .add_system(update_control_surface_angle)
             .add_system(simulate_aerodynamics.after(update_control_surface_angle))
             .add_system_to_stage(
@@ -49,7 +48,7 @@ fn draw_debug_visualizations(
 ) {
     for (global_transform, read_mass_properties, surface_list) in &airplane_query {
         let world_center_of_mass =
-            global_transform.mul_vec3(read_mass_properties.0.local_center_of_mass);
+            global_transform.transform_point(read_mass_properties.0.local_center_of_mass);
         lines.line_colored(
             world_center_of_mass,
             world_center_of_mass + global_transform.forward(),
@@ -102,7 +101,7 @@ fn draw_debug_visualizations(
     }
 }
 
-#[derive(Inspectable, Default, Clone, Copy)]
+#[derive(Reflect, FromReflect, Default, Clone, Copy)]
 pub enum ControlInputType {
     #[default]
     None,
@@ -112,7 +111,7 @@ pub enum ControlInputType {
     Flap,
 }
 
-#[derive(Inspectable, Clone, Copy)]
+#[derive(Reflect, FromReflect, Clone, Copy)]
 pub struct AeroSurfaceConfig {
     pub lift_slope: f32,
     pub skin_friction: f32,
@@ -139,7 +138,7 @@ impl Default for AeroSurfaceConfig {
     }
 }
 
-#[derive(Inspectable, Default, Clone, Copy)]
+#[derive(Reflect, FromReflect, Default, Clone, Copy)]
 pub struct AeroSurface {
     pub config: AeroSurfaceConfig,
     pub input_type: ControlInputType,
@@ -383,7 +382,7 @@ fn lerp_clamped(a: f32, b: f32, mut t: f32) -> f32 {
     return a + t * (b - a);
 }
 
-#[derive(Inspectable, Default, Component)]
+#[derive(Reflect, Default, Component)]
 pub struct AeroSurfaceList {
     pub surfaces: Vec<(AeroSurface, Transform)>,
 }
@@ -452,7 +451,8 @@ fn simulate_aerodynamics(
     for (mut surface_list, mut external_force, read_mass_properties, transform, velocity) in
         airplane_query.iter_mut()
     {
-        let world_center_of_mass = transform.mul_vec3(read_mass_properties.0.local_center_of_mass);
+        let world_center_of_mass =
+            transform.transform_point(read_mass_properties.0.local_center_of_mass);
 
         external_force.force = Vec3::ZERO;
         external_force.torque = Vec3::ZERO;

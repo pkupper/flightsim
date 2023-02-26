@@ -39,10 +39,11 @@ fn setup_input(mut commands: Commands) {
     ]);
     input_map.insert(VirtualDPad::dpad(), AirplaneAction::CameraPanTilt);
 
-    commands
-        .spawn_bundle(InputManagerBundle::<AirplaneAction> {
+    commands.spawn((
+        InputManagerBundle::<AirplaneAction> {
             action_state: ActionState::default(),
             input_map,
-        })
-        .insert(AirplaneControls);
+        },
+        AirplaneControls,
+    ));
 }

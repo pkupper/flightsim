@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
 use bevy_rapier3d::prelude::*;
 use enum_map::EnumMap;
 
@@ -16,7 +15,7 @@ impl Plugin for AirplanePlugin {
 #[derive(Component)]
 pub struct Airplane;
 
-#[derive(Inspectable, Clone, Copy, PartialEq, Eq, Hash, Default, Enum)]
+#[derive(Reflect, Clone, Copy, PartialEq, Eq, Hash, Default, Enum)]
 pub enum FlightMetric {
     #[default]
     Airspeed,

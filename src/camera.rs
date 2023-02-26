@@ -22,25 +22,24 @@ impl Plugin for CameraPlugin {
 struct MainCamera;
 
 fn setup_camera(mut commands: Commands) {
-    commands
-        .spawn_bundle(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 1., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
-        })
-        .insert(MainCamera);
+        },
+        MainCamera,
+    ));
 
-    commands
-        .spawn()
-        .insert(
-            Rig::builder()
-                .with(Position::new(Vec3::ZERO))
-                .with(Rotation::new(Quat::IDENTITY))
-                .with(YawPitch::new().yaw_degrees(45.0).pitch_degrees(-30.0))
-                .with(Smooth::new_rotation(1.5))
-                .with(Arm::new(Vec3::Z * 25.0))
-                .build(),
-        )
-        .insert(MainCamera);
+    commands.spawn((
+        Rig::builder()
+            .with(Position::new(Vec3::ZERO))
+            .with(Rotation::new(Quat::IDENTITY))
+            .with(YawPitch::new().yaw_degrees(45.0).pitch_degrees(-30.0))
+            .with(Smooth::new_rotation(1.5))
+            .with(Arm::new(Vec3::Z * 25.0))
+            .build(),
+        MainCamera,
+    ));
 }
 
 fn update_camera(
